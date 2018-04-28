@@ -10,19 +10,12 @@ const FILE_NAME = 'source';
 const META_NAME = 'meta.json';
 
 class FileEntry extends BaseEntry {
-	constructor(metaRaw, store) {
+	constructor(meta, store) {
 		super();
 
-		const dirPath = store.getDirPathname(metaRaw.hash);
-		this._sourcePath = path.resolve(dirPath, FILE_NAME);
+		this._sourcePath = store.getSourcePathname(meta.hash);
 
-		fs.readFile(this._sourcePath, (err, data) => {
-			if (err) {
-				throw err;
-			}
-
-			this.meta = new Meta(data, metaRaw);
-		});
+		this.meta = meta;
 	}
 
 	$getBuffer() {
@@ -35,36 +28,6 @@ class FileEntry extends BaseEntry {
 				resolve(data);
 			});
 		});
-	}
-
-	destory() {
-		
-	}
-
-	static from(buffer, store) {
-		const meta = new Meta(buffer);
-		const dirPath = store.getDirPathname(meta.hash);
-
-		try {
-			fs.accessSync(dirPath);
-		} catch (err) {
-			fs.ensureDirSync(dirPath);
-	
-			const sourcePath = path.resolve(dirPath, FILE_NAME);
-			const metaPath = path.resolve(dirPath, META_NAME);
-	
-			fs.writeFileSync(metaPath, JSON.stringify(meta.raw()), {
-				encoding: 'utf-8'
-			});
-	
-			fs.writeFile(sourcePath, buffer, err => {
-				if (err) {
-					throw err;
-				} 
-			});
-		}
-
-		return new this(dirPath);
 	}
 }
 
@@ -85,23 +48,70 @@ exports.FileStoreAdapter = class FileStoreAdapter extends BaseStoreAdapter {
 	}
 
 	_registerStoredEntry() {
-
+		fs.readdir(this._root, (err, list) => {
+			list.forEach(hash => {
+				const meta = new Meta(require(this.getMetaPathname(hash)))
+				this._registerEntry(new FileEntry(meta, this));
+			});
+		});
 	}
 
 	_registerEntry(entry) {
-		this[entry.meta.hash] = entry;
+		this._list[entry.meta.hash] = entry;
+	}
+
+	_writeEntry(buffer, meta) {
+		const hash = meta.hash;
+
+		// EnsureDir
+		const dirPath = this.getDirPathname(hash);
+		fs.ensureDirSync(dirPath);
+	
+		// Write files
+		const sourcePath = this.getSourcePathname(hash);
+		const metaPath = this.getMetaPathname(hash);
+
+		fs.writeFile(metaPath, JSON.stringify(meta.raw()), {
+			encoding: 'utf-8'
+		}, err => {
+			if (err) {
+				throw err;
+			}
+		});
+
+		fs.writeFile(sourcePath, buffer, err => {
+			if (err) {
+				throw err;
+			}
+		});
 	}
 
 	getDirPathname(hash) {
 		return path.resolve(this._root, hash);
 	}
 
+	getSourcePathname(hash) {
+		return path.resolve(this._root, hash, FILE_NAME);
+	}
+
+	getMetaPathname(hash) {
+		return path.resolve(this._root, hash, META_NAME);
+	}
+
 	$put(buffer) {
-		const entry = FileEntry.from(buffer, this);
+		const meta = Meta.from(buffer);
+		const existedEntry = this._list[meta.hash];
 
-		this._registerEntry(entry);
+		if (existedEntry) {
+			return existedEntry;
+		}
 
-		return entry;
+		// Create new Entry & async writing files.
+		const newEntry = new FileEntry(meta, this);
+		this._registerEntry(newEntry);
+		this._writeEntry(buffer, meta);
+
+		return newEntry;
 	}
 
 	$get(hash) {
@@ -110,6 +120,8 @@ exports.FileStoreAdapter = class FileStoreAdapter extends BaseStoreAdapter {
 		if (!entry) {
 			this.throwEntryNotFound(hash);
 		}
+
+		
 
 		return entry;
 	}

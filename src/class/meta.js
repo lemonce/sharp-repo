@@ -2,35 +2,17 @@
 const _ = require('lodash');
 const { Buffer } = require('buffer');
 const { createHash } = require('crypto');
-const hash = createHash('sha1');
 
 function isBuffer(any) {
 	return any instanceof Buffer;
 }
 
 module.exports = class Meta {
-	constructor(buffer, raw) {
-		if (!isBuffer(buffer)) {
-			throw new Error('Argument 0 must be a Buffer');
-		}
-		
-		hash.update(buffer);
-		this._hash = hash.digest('hex');
-
-		if (raw) {
-			const { visit, create, hash } = raw;
-
-			if (this._hash !== hash) {
-				throw new Error('Data source inconsistency');
-			}
-
-			this._visit = new Date(visit);
-			this._create = new Date(create);
-		} else {
-			this._visit = this._create = new Date();
-		}
-
-		this._length = buffer.length;
+	constructor({ visit, create, hash, length }) {
+		this._hash = hash;
+		this._length = length;
+		this._visit = new Date(visit);
+		this._create = new Date(create);
 	}
 
 	get hash() {
@@ -61,5 +43,24 @@ module.exports = class Meta {
 
 	static isMeta(any) {
 		return any instanceof this;
+	}
+
+	static from(buffer) {
+		const hash = createHash('sha1');
+		
+		if (!isBuffer(buffer)) {
+			throw new Error('Argument 0 must be a Buffer');
+		}
+		
+		hash.update(buffer);
+
+		const raw = {
+			hash: hash.digest('hex'),
+			length: buffer.length,
+			visit: new Date(),
+			create: new Date()
+		}
+
+		return new this(raw);
 	}
 };

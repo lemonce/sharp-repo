@@ -1,5 +1,5 @@
 'use strict';
-const Buffer = require('buffer');
+const { Buffer } = require('buffer');
 const EventEmitter = require('events');
 const Meta = require('./meta');
 
@@ -19,7 +19,7 @@ module.exports = class BaseEntry extends EventEmitter {
 	}
 
 	_ensureReady() {
-		if (!this.isReady()) {
+		if (!this.isReady) {
 			throw new Error('This entry instance is not ready to use.');
 		}
 	}
@@ -55,14 +55,16 @@ module.exports = class BaseEntry extends EventEmitter {
 			throw new Error('Entry.$getBuffer() => Promise.');
 		}
 
-		return this.$getBuffer.then(buffer => {
+		return getBufferPromise.then(buffer => {
 			if (!isBuffer(buffer)) {
 				throw new Error('Entry.$getBuffer() => Promise.then(callback(<Buffer Excepted>)).');
 			}
 
-			this._meta.visit();
+			this._meta.updateVisit();
 
 			this.emit('read-success', buffer, this._meta);
+
+			return buffer;
 		}, error => {
 			this.emit('read-error', error);
 

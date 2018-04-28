@@ -5,6 +5,10 @@ const BaseEntry = require('../entry');
 const SHA1_REG = /[a-f0-9]{40}/;
 
 function toBuffer(any) {
+	if (any instanceof Buffer) {
+		return any;
+	}
+	
 	return Buffer.from(JSON.stringify(any));
 }
 
