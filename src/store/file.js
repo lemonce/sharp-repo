@@ -13,9 +13,22 @@ class FileEntry extends BaseEntry {
 	constructor(meta, store) {
 		super();
 
-		this._sourcePath = store.getSourcePathname(meta.hash);
-
+		this._store = store;
 		this.meta = meta;
+
+		this.on('read-success', (buffer, meta) => {
+			const metaPath = this._store.getMetaPathname(meta.hash);
+
+			fs.writeFile(metaPath, JSON.stringify(meta.raw()), err => {
+				if (err) {
+					throw err;
+				}
+			});
+		});
+	}
+
+	get _sourcePath() {
+		return this._store.getSourcePathname(this.meta.hash);
 	}
 
 	$getBuffer() {
@@ -46,11 +59,21 @@ exports.FileStoreAdapter = class FileStoreAdapter extends BaseStoreAdapter {
 
 		this._registerStoredEntry();
 	}
+	
+	has(hash) {
+		return this._list.hasOwnProperty(hash);
+	}
 
 	_registerStoredEntry() {
 		fs.readdir(this._root, (err, list) => {
+			if (err) {
+				throw err;
+			}
+
 			list.forEach(hash => {
-				const meta = new Meta(require(this.getMetaPathname(hash)))
+				//TODO validate
+				const meta = new Meta(require(this.getMetaPathname(hash)));
+
 				this._registerEntry(new FileEntry(meta, this));
 			});
 		});
@@ -120,8 +143,6 @@ exports.FileStoreAdapter = class FileStoreAdapter extends BaseStoreAdapter {
 		if (!entry) {
 			this.throwEntryNotFound(hash);
 		}
-
-		
 
 		return entry;
 	}

@@ -58,3 +58,4 @@ typings/
 .env
 
 /sandbox
+/test.png

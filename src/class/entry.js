@@ -18,19 +18,7 @@ module.exports = class BaseEntry extends EventEmitter {
 		this._meta = null;
 	}
 
-	_ensureReady() {
-		if (!this.isReady) {
-			throw new Error('This entry instance is not ready to use.');
-		}
-	}
-
-	get isReady() {
-		return Boolean(this._meta);
-	}
-
 	get meta() {
-		this._ensureReady();
-
 		return this._meta;
 	}
 
@@ -47,8 +35,6 @@ module.exports = class BaseEntry extends EventEmitter {
 	}
 
 	read() {
-		this._ensureReady();
-
 		const getBufferPromise = this.$getBuffer();
 
 		if (!isPromise(getBufferPromise)) {
